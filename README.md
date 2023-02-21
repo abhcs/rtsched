@@ -13,23 +13,33 @@ quickly to the solution:
 ![compare fixed-point iteration to cutting-plane method](docs/images/fp_cp_compare.png)
 
 This repository is primarily intended to be a companion to the arxiv paper. It
-contains Python implementations of state-of-the-art schedulability tests that
-are proposed in the paper. However, the tests have not been written with *real*
-performance in mind: for instance, we use arbitrary-precision Python integers
-instead of floats to err on the side of caution, and we use the number of
-iterations required by each algorithm as to measure performance in our
-experiments (not wall-clock time). These choices are justified because we really
-want to understand the *algorithms*, not the *implementations*. The number of
-iterations required for convergence is a property of the algorithm that is
-independent of the implementation. The repository should serve as a useful
-starting point for someone interested in developing schedulability tests that
-run quickly in *reality* (maybe use a language with good support for parallel
-programming).
+contains
+- a simple implementation of a hard real-time task (see
+  [task.py](rtsched/system/task.py));
+- a method for generating random systems of hard real-time tasks (see
+  [generate_random.py](rtsched/system/generate_random.py));
+- instrumented implementations of FP-KERN, IP-KERN, and CP-KERN that count the
+  number of iterations used by the algorithm (see
+  [kernel.py](rtsched/sched_test/kernel.py));
+- the reduction from FP schedulability to the kernel described in
+  Appendix A (see [fp.py](rtsched/sched_test/fp.py));
+- the reduction from EDF schedulability to the kernel described in Appendix B
+ (see [edf.py](rtsched/sched_test/edf.py));
+- tests that ensure consistency with traditional schedulability tests like
+  RTA and QPA (see [tests](rtsched/tests));
+- a script for running the experiments and generating the associated data and
+  images (see [exp.py](./exp.py))
 
-This repository should allow you to replicate the results of the experiments
-described in Section 6 of the paper. It contains a significant amount of test
-code to ensure that our new algorithms produce correct results and are
-consistent with traditional algorithms.
+The tests have not been written with *real* performance in mind: for instance,
+we use arbitrary-precision Python integers instead of floats to err on the side
+of caution, and we use the number of iterations required by each algorithm as to
+measure performance in our experiments (not wall-clock time). These choices are
+justified because we really want to understand the *algorithms*, not the
+*implementations*. The number of iterations required for convergence is a
+property of the algorithm that is independent of the implementation. The
+repository should serve as a useful starting point for someone interested in
+developing schedulability tests that run quickly in *reality* (maybe use a
+language with good support for parallel programming).
 
 ## Requirements
 
@@ -81,7 +91,7 @@ results produced by this code.
 
 ## History
 
-Version 0.1 (2023-02-20)
+Version 0.1.1 (2023-02-21)
 
 ## Credits
 

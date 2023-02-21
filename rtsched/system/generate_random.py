@@ -12,7 +12,7 @@ DEADLINE_TYPES = ['implicit', 'constrained', 'arbitrary']
 
 def generate_system(rng: np.random.Generator, n: int, max_wcet: int, sum_util,
                     deadline_type: str, sum_dens, max_jitter: int):
-    """Generate a random system of n hard real-time tasks.
+    """Generate a random system of hard real-time tasks.
 
     Args:
         rng: a random number generator from numpy like np.random.default_rng()
