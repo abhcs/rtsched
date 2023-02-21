@@ -10,7 +10,7 @@ formulations of fixed-priority and earliest-deadline-first schedulability
 problems; the optimal algorithm, discovered in this paper, converges more
 quickly to the solution:
 
-[compare fixed-point iteration to cutting-plane method](docs/images/fp_cp_compare.png)
+![compare fixed-point iteration to cutting-plane method](docs/images/fp_cp_compare.png)
 
 This repository is primarily intended to be a companion to the arxiv paper. It
 contains Python implementations of state-of-the-art schedulability tests that

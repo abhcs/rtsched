@@ -269,7 +269,7 @@ if __name__ == "__main__":
       # we used num_systems = 10000 in the actual experiment but the code
       # executed for several hours. use a smaller value here to see if things
       # are working properly first.
-        data1, data2 = run_fp(seed=1234, num_systems=10000, n=n, max_wcet=1000,
+        data1, data2 = run_fp(seed=1234, num_systems=100, n=n, max_wcet=1000,
                               sum_util=u, max_jitter=0, method1=method1,
                               method2=method2, data_fn=data_fn)
 
