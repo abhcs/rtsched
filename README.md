@@ -87,6 +87,10 @@ Version 0.1 (2023-02-20)
 
 Abhishek Singh
 
+## DOI
+
+[![DOI](https://zenodo.org/badge/604422991.svg)](https://zenodo.org/badge/latestdoi/604422991)
+
 ## License
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
