@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling", "hatch-requirements-txt"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rtsched"
+description = "Cutting-plane algorithms for preemptive uniprocessor real-time scheduling problems"
+requires-python = ">=3.8"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Abhishek Singh", email = "abhishek.s@wustl.edu" },
+]
+dependencies = [
+  "docplex==2.25.236",
+  "numpy==1.24.2",
+  "pytest==7.2.1",
+  "scipy==1.10.0",
+  "matplotlib==3.7.0"
+]
+dynamic = [
+  "version"
+]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
+
+[tool.hatch.version]
+path = "rtsched/__about__.py"
