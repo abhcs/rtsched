@@ -30,16 +30,16 @@ contains
 - a script for running the experiments and generating the associated data and
   images (see [exp.py](./exp.py))
 
-The tests have not been written with *real* performance in mind: for instance,
-we use arbitrary-precision Python integers instead of floats to err on the side
-of caution, and we use the number of iterations required by each algorithm as to
-measure performance in our experiments (not wall-clock time). These choices are
-justified because we really want to understand the *algorithms*, not the
-*implementations*. The number of iterations required for convergence is a
-property of the algorithm that is independent of the implementation. The
-repository should serve as a useful starting point for someone interested in
-developing schedulability tests that run quickly in *reality* (maybe use a
-language with good support for parallel programming).
+The algorithms have not been implemented to optimize for *real* performance: for
+instance, we use arbitrary-precision Python integers instead of floats to err on
+the side of caution, and we use the number of iterations required by each
+algorithm as to measure performance in our experiments (not wall-clock time).
+These choices are justified because we really want to understand the
+*algorithms*, not the *implementations*. The number of iterations required for
+convergence is a property of the algorithm that is independent of the
+implementation. The repository should serve as a useful starting point for
+someone interested in developing schedulability tests that run quickly in
+*reality* (maybe use a language with good support for parallel programming).
 
 ## Requirements
 
