@@ -28,7 +28,9 @@ contains
 - tests that ensure consistency with traditional schedulability tests like
   RTA and QPA (see [tests](rtsched/tests));
 - a script for running the experiments and generating the associated data and
-  images (see [exp.py](./exp.py))
+  images (see [exp.py](./exp.py)); and
+- historical data and images generated from running the experiments (see
+  [hist](./hist)).
 
 The algorithms have not been implemented to optimize for *real* performance: for
 instance, we use arbitrary-precision Python integers instead of floats to err on
