@@ -23,43 +23,50 @@ More details about the kernel may be found in https://arxiv.org/abs/2210.11185.
 
 """
 
-
+import ctypes
 import math
+import os
 from fractions import Fraction
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from docplex.mp.model import Model
 from rtsched.system.task import Task
-from rtsched.util.math import argsort, dot
+from rtsched.util.math import dot
 
 
-def fixed_point(tsks : List[Task], alphas: List[int], beta: int, a: int,
-                b: int, perf=None) -> Optional[int]:
+def fixed_point(tsks: List[Task],
+                alphas: List[int],
+                beta: int,
+                a: int,
+                b: int,
+                perf=None) -> Optional[int]:
     """Solve a kernel instance using fixed-point iteration.
 
     Args:
-        tsks: nonempty list of tasks
+        tsks: list of tasks
+
         alphas: list of integers of same length as tsks
+
         beta: an integer
-        a, b: integer endpoints of interval [a, b]
-              tsks, alphas, beta, a, b are the constants used to specify the
-              kernel instance.
+
+        a, b: integer endpoints of interval [a, b]. tsks, alphas, beta, a, b
+              are the constants used to specify the kernel instance.
+
         perf: if perf is not None, then the number of iterations used by the
               method is added to perf.num_iterations
 
     Returns:
         the optimal objective value if the instance is feasible; None, otherwise.
 
-    See Sec. 5.1 in https://arxiv.org/abs/2210.11185.
-
     >>> fixed_point(tsks = [Task(20, 40), Task(10, 50), Task(33, 150)], alphas = [0, 0, 0], beta= 0, a = 20, b = 150)
     143
 
     """
     def phi(t):
-        return sum([math.ceil(Fraction(t + alpha, tsk.period)) * tsk.wcet
-                    for tsk, alpha in zip(tsks, alphas)]) + beta
-
+        return sum([
+            math.ceil(Fraction(t + alpha, tsk.period)) * tsk.wcet
+            for tsk, alpha in zip(tsks, alphas)
+        ]) + beta
 
     # check trivial cases
     if not tsks and a <= b:
@@ -79,7 +86,7 @@ def fixed_point(tsks : List[Task], alphas: List[int], beta: int, a: int,
         if perf is not None:
             perf.num_iterations += 1
 
-        if v == t_: # fixed point is found
+        if v == t_:  # fixed point is found
             return t_
         t_ = v
 
@@ -87,12 +94,16 @@ def fixed_point(tsks : List[Task], alphas: List[int], beta: int, a: int,
     return None
 
 
-def integer_program(tsks : List[Task], alphas: List[int], beta: int, a: int,
-                    b: int, perf=None) -> Optional[int]:
+def integer_program(tsks: List[Task],
+                    alphas: List[int],
+                    beta: int,
+                    a: int,
+                    b: int,
+                    perf=None) -> Optional[int]:
     """Solve a kernel instance using integer programming.
 
     Args:
-        tsks: nonempty list of tasks
+        tsks: list of tasks
         alphas: list of integers of same length as tsks
         beta: an integer
         a, b: integer endpoints of interval [a, b]
@@ -101,15 +112,12 @@ def integer_program(tsks : List[Task], alphas: List[int], beta: int, a: int,
         perf: if perf is not None, then the number of iterations used by the
               method is added to perf.num_iterations
 
-    Returns:
-        the optimal objective value if the instance is feasible; None, otherwise.
-
-    See Sec. 5.2 in https://arxiv.org/abs/2210.11185 for more details on the
-    integer program.
+    Returns: the optimal objective value if the instance is feasible; None,
+    otherwise.
 
     Note that cplex uses double-precision (64-bit) arithmetic in its
     computations but the arguments provided to the function are python integers
-    that are potentially unbounded. The integers in cplex are not perfect but
+    that are potentially unbounded.The integers in cplex are not perfect but
     are subject to an integrality tolerance; the constraints in cplex are also
     imperfect and subject to a feasibility tolerance. We tune these tolerances
     using the numbers in the problem instance but for instances with very large
@@ -130,6 +138,7 @@ def integer_program(tsks : List[Task], alphas: List[int], beta: int, a: int,
 
     TODO: Experiment with cut callbacks as described here:
     https://github.com/IBMDecisionOptimization/docplex-examples/blob/master/examples/mp/callbacks/cut_callback.py
+
     """
     if not tsks and a <= b:
         return a
@@ -142,7 +151,7 @@ def integer_program(tsks : List[Task], alphas: List[int], beta: int, a: int,
     mdl = Model(ignore_names=True, log_output=False, checker='off')
 
     # create variables
-    t = mdl.integer_var(lb = a, ub = b)
+    t = mdl.integer_var(lb=a, ub=b)
     n = len(tsks)
     xs = mdl.integer_var_list(n, lb=-mdl.infinity, ub=mdl.infinity)
 
@@ -161,14 +170,14 @@ def integer_program(tsks : List[Task], alphas: List[int], beta: int, a: int,
     mdl.parameters.mip.tolerances.integrality = tol
     mdl.parameters.simplex.tolerances.feasibility = tol
 
-    # turn off bound strengthening during presolve. if bound strengthening is
+    # turn off bound strengthening during presolve.if bound strengthening is
     # on, the problem often gets solved during presolve but we wish to measure
-    # the number of iterations used by the branch & cut algorithm. if you are
-    # not interested in this measurement, you may want to toggle this switch
-    # and see if it reduces solve times.
+    # the number of iterations used by the branch& cut algorithm.if you are not
+    # interested in this measurement, you may want to toggle this switch and
+    # see if it reduces solve times.
     mdl.parameters.preprocessing.boundstrength = 0
 
-    # solve integer program
+    #solve integer program
     s = mdl.solve()
 
     if perf is not None:
@@ -180,12 +189,16 @@ def integer_program(tsks : List[Task], alphas: List[int], beta: int, a: int,
     return round(s.objective_value)
 
 
-def cutting_plane(tsks : List[Task], alphas: List[int], beta: int, a: int,
-                    b: int, perf=None) -> Optional[int]:
+def cutting_plane(tsks: List[Task],
+                  alphas: List[int],
+                  beta: int,
+                  a: int,
+                  b: int,
+                  perf=None) -> Optional[int]:
     """Solve a kernel instance using a specialized cutting-plane algorithm.
 
     Args:
-        tsks: nonempty list of tasks
+        tsks: list of tasks
         alphas: list of integers of same length as tsks
         beta: an integer
         a, b: integer endpoints of interval [a, b]
@@ -200,101 +213,257 @@ def cutting_plane(tsks : List[Task], alphas: List[int], beta: int, a: int,
     Unlike integer_program(...), this function does not have double-precision
     arithmetic issues because we use python integers and fractions.
 
-    See Sec. 5.3-5.6 in https://arxiv.org/abs/2210.11185 for more details on
-    the algorithm.
-
     >>> cutting_plane(tsks = [Task(20, 40), Task(10, 50), Task(33, 150)], alphas = [0, 0, 0], beta= 0, a = 20, b = 150)
     143
 
     """
-    if not tsks and a <= b:
-        return a
+    utils = [tsk.utilization for tsk in tsks]
+    p0 = beta + dot(alphas, utils)
+    q0 = 1 - sum(utils)
+    n = len(tsks)
 
-    if a > b:
+    assert q0 >= 0
+
+    if a > b or (p0 > 0 and q0 == 0):
         return None
 
-    xs = [math.ceil(Fraction(a + alpha, tsk.period))
-         for tsk, alpha in zip(tsks, alphas)]
+    if n == 0:
+        return a
 
-    def solve_linear_relaxation() -> Tuple[Optional[Fraction], bool]:
-        """Solve linear relaxation of the integer program as described in Sec.
-        5.5, https://arxiv.org/abs/2210.11185; returns the optimal objective
-        value and a boolean indicating whether the solution is integral.
+    ys = [
+        math.ceil(Fraction(a + alpha, tsk.period)) * tsk.period - alpha
+        for alpha, tsk in zip(alphas, tsks)
+    ]
+    pi = list(range(n))
+    pi.sort(key=ys.__getitem__, reverse=True)
 
-        """
-        utils = [tsk.utilization for tsk in tsks]
-        sum_util = sum(utils)
-        assert sum_util <= 1
-        num = beta + dot(alphas, utils)
-        den = 1 - sum_util
-        if num > 0 and den == 0: # the relaxation is infeasible
-            return None, False
-
-        # sort the problem instance in nonincreasing order using the key
-        # x * tsk.period - alpha
-        ys = [alpha - x * tsk.period for alpha, x, tsk in zip(alphas, xs, tsks)]
-        pi = argsort(ys)
-
-        # find the local, and hence global, maximum of f, as described in
-        # Sec. 5.6
-        local_max = None
-        for idx in pi:
-            num += xs[idx] * tsks[idx].wcet - alphas[idx] * utils[idx]
-            den += utils[idx]
-            v = Fraction(num, den)
-            if local_max is not None and v < local_max:
-                return local_max, False
-            local_max = v
-        return local_max, True
+    if q0 > 0 and p0 > q0 * ys[pi[0]]:
+        return None
 
     while True:
-        s, integral = solve_linear_relaxation()
+        p, q, t = p0 + utils[pi[0]] * ys[pi[0]], q0 + utils[pi[0]], a
+        i = 1
+        while i < n:
+            k = pi[i]
+            if p > q * ys[k]:
+                t = math.ceil(Fraction(p, q))
+                break
+            p += utils[k] * ys[k]
+            q += utils[k]
+            i += 1
+
+        if i == n:
+            t = Fraction(p, q)
 
         if perf is not None:
             perf.num_iterations += 1
 
-        if s:
-            # the trivial case
-            if s <= a:
-                return a
+        # the trivial case
+        if t <= a:
+            return a
 
-            # instance is infeasible because relaxation is infeasible
-            if s > b:
-                return None
-
-            # solution is integral and feasible, and hence optimal
-            if integral:
-                break
-
-            # solution is not integral; generate cutting planes
-            xs = [math.ceil((s + alpha) / tsk.period)
-                  for tsk, alpha in zip(tsks, alphas)]
-        else:
+        # instance is infeasible because relaxation is infeasible
+        if t > b:
             return None
 
-    return math.ceil(s)
+        # solution is integral and feasible, and hence optimal
+        if i == n:
+            return math.ceil(t)
+
+        for j in range(i, n):
+            k = pi[j]
+            alpha = alphas[k]
+            period = tsks[k].period
+            ys[k] = math.ceil(Fraction(t + alpha, period)) * period - alpha
+
+        l1 = pi[:i].copy()
+        l2 = sorted(pi[i:n], key=ys.__getitem__, reverse=True)
+        i1, i2, k = 0, 0, 0
+        while i1 < i and i2 < n - i:
+            if ys[l1[i1]] >= ys[l2[i2]]:
+                pi[k] = l1[i1]
+                i1 += 1
+            else:
+                pi[k] = l2[i2]
+                i2 += 1
+            k += 1
+        if i1 == i:
+            l1 = l2
+            i1 = i2
+            i = n - i
+        while i1 < i:
+            pi[k] = l1[i1]
+            i1 += 1
+            k += 1
+
+
+def fixed_point_cpp(tsks: List[Task],
+                    alphas: List[int],
+                    beta: int,
+                    a: int,
+                    b: int,
+                    perf=None) -> Optional[int]:
+    """Solve a kernel instance using fixed-point iteration.
+
+    Args:
+        tsks: list of tasks
+
+        alphas: list of integers of same length as tsks
+
+        beta: an integer
+
+        a, b: integer endpoints of interval [a, b]. tsks, alphas, beta, a, b
+              are the constants used to specify the kernel instance.
+
+        perf: if perf is not None, then the number of iterations used by the
+              method is added to perf.num_iterations
+
+    Returns:
+        the optimal objective value if the instance is feasible; None, otherwise.
+
+    There may be overflow issues when converting from python integers to C++
+    integers! The C++ implementation itself may contain integer overflow
+    errors! DO NOT USE THIS FUNCTION UNLESS YOU KNOW WHAT YOU'RE DOING!
+
+    >>> fixed_point_cpp(tsks = [Task(20, 40), Task(10, 50), Task(33, 150)], alphas = [0, 0, 0], beta= 0, a = 20, b = 150)
+    143
+
+    """
+    dir = os.path.dirname(__file__)
+    lib = ctypes.CDLL(os.path.join(dir, "build/libkernel.dylib"))
+    lib.fixed_point.argtypes = [
+        ctypes.POINTER(ctypes.c_uint64),
+        ctypes.POINTER(ctypes.c_uint64),
+        ctypes.POINTER(ctypes.c_int64), ctypes.c_uint64, ctypes.c_int64,
+        ctypes.c_int64, ctypes.c_int64,
+        ctypes.POINTER(ctypes.c_bool),
+        ctypes.POINTER(ctypes.c_double)
+    ]
+    lib.fixed_point.restype = ctypes.c_int64
+
+    wcets = [tsk.wcet for tsk in tsks]
+    periods = [tsk.period for tsk in tsks]
+    n = len(tsks)
+    cs = (ctypes.c_uint64 * n)(*wcets)
+    ps = (ctypes.c_uint64 * n)(*periods)
+    als = (ctypes.c_int64 * n)(*alphas)
+    feasible = ctypes.c_bool(True)
+    time = ctypes.c_double(0)
+    res = lib.fixed_point(cs, ps, als, ctypes.c_uint64(n),
+                          ctypes.c_int64(beta), ctypes.c_int64(a),
+                          ctypes.c_int64(b), ctypes.byref(feasible),
+                          ctypes.byref(time))
+    if perf is not None:
+        perf.time += time.value
+    if feasible:
+        return res
+    return None
+
+
+def cutting_plane_cpp(tsks: List[Task],
+                      alphas: List[int],
+                      beta: int,
+                      a: int,
+                      b: int,
+                      perf=None) -> Optional[int]:
+    """Solve a kernel instance using the c++ implementation of the specialized
+    cutting-plane algorithm.
+
+    Args:
+
+        tsks: list of tasks (the length of the list must not exceed 100, and
+        the utilization must be strictly less than one)
+
+        alphas: list of integers of same length as tsks
+
+        beta: an integer
+
+        a, b: integer endpoints of interval [a, b]. tsks, alphas, beta, a, b
+              are the constants used to specify the kernel instance.
+
+        perf: if perf is not None, then the time used by the method is added to
+              perf.time
+
+    Returns:
+        the optimal objective value if the instance is feasible; None, otherwise.
+
+    There may be overflow issues when converting from python integers to C++
+    integers! The C++ implementation itself may contain integer overflow and
+    double-precision errors! The function only works for bounded-utilization
+    systems! DO NOT USE THIS FUNCTION UNLESS YOU KNOW WHAT YOU'RE DOING!
+
+    >>> cutting_plane_cpp(tsks = [Task(20, 40), Task(10, 50), Task(33, 150)], alphas = [0, 0, 0], beta= 0, a = 20, b = 150)
+    143
+
+    """
+    dir = os.path.dirname(__file__)
+    lib = ctypes.CDLL(os.path.join(dir, "build/libkernel.dylib"))
+    lib.cutting_plane.argtypes = [
+        ctypes.POINTER(ctypes.c_uint64),
+        ctypes.POINTER(ctypes.c_uint64),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_int64), ctypes.c_uint64, ctypes.c_int64,
+        ctypes.c_int64, ctypes.c_int64,
+        ctypes.POINTER(ctypes.c_bool),
+        ctypes.POINTER(ctypes.c_double)
+    ]
+    lib.cutting_plane.restype = ctypes.c_int64
+
+    wcets = [tsk.wcet for tsk in tsks]
+    periods = [tsk.period for tsk in tsks]
+    utils = [tsk.utilization for tsk in tsks]
+    assert sum(utils) < 1
+    utils = [float(u) for u in utils]
+    n = len(tsks)
+    cs = (ctypes.c_uint64 * n)(*wcets)
+    ps = (ctypes.c_uint64 * n)(*periods)
+    us = (ctypes.c_double * n)(*utils)
+    als = (ctypes.c_int64 * n)(*alphas)
+    feasible = ctypes.c_bool(True)
+    time = ctypes.c_double(0)
+    res = lib.cutting_plane(cs, ps, us, als, ctypes.c_uint64(n),
+                            ctypes.c_int64(beta), ctypes.c_int64(a),
+                            ctypes.c_int64(b), ctypes.byref(feasible),
+                            ctypes.byref(time))
+    if perf is not None:
+        perf.time += time.value
+    if feasible:
+        return res
+    return None
 
 
 METHODS = {
-    'fp': fixed_point, # fixed-point iteration
-    'ip': integer_program, # integer programming
-    'cp': cutting_plane  # specialized cutting-plane algorithm
+    'fp': fixed_point,  # fixed-point iteration
+    'ip': integer_program,  # integer programming
+    'cp': cutting_plane,  # specialized cutting-plane algorithm
+    'fp_cpp': fixed_point_cpp,  # fixed-point iteration (C++ wrapper)
+    'cp_cpp':
+    cutting_plane_cpp  # specialized cutting-plane algorithm (C++ wrapper)
 }
 
 
-def solve(tsks : List[Task], alphas: List[int], beta: int, a: int,
-          b: int, perf=None, method: str = 'cp') -> Optional[int]:
+def solve(tsks: List[Task],
+          alphas: List[int],
+          beta: int,
+          a: int,
+          b: int,
+          perf=None,
+          method: str = 'cp') -> Optional[int]:
     """Solve a kernel instance.
 
     Args:
-        tsks: nonempty list of tasks
+        tsks: list of tasks
+
         alphas: list of integers of same length as tsks
+
         beta: an integer
-        a, b: integer endpoints of interval [a, b]
-              tsks, alphas, beta, a, b are the constants used to specify the
-              kernel instance.
+
+        a, b: integer endpoints of interval [a, b]. tsks, alphas, beta, a, b
+              are the constants used to specify the kernel instance.
+
         perf: if perf is not None, then the number of iterations used by the
               method is added to perf.num_iterations
+
         method: if method is 'fp' (resp, 'ip', 'cp') then the kernel instance
                 is solved using fixed-point iteration (resp., integer
                 programming, specialized cutting plane)
@@ -304,6 +473,7 @@ def solve(tsks : List[Task], alphas: List[int], beta: int, a: int,
 
     >>> solve(tsks = [Task(20, 40), Task(10, 50), Task(33, 150)], alphas = [0, 0, 0], beta= 0, a = 20, b = 150, method='cp')
     143
+
     """
     us = [tsk.utilization for tsk in tsks]
     assert sum(us) <= 1, 'the utilization of the system must be at most 1'

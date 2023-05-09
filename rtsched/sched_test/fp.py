@@ -8,14 +8,12 @@ FP schedulability corresponds to the following optimization problem:
              for tsk in tsks[:-1]) + tsks[-1].wcet <= t
 
 tsks is a constant list of tasks with total utilization at most 1; the tasks
-are listed in decreasing order of priority. For more details, see Sec. 2.1,
-https://arxiv.org/abs/2210.11185.
+are listed in decreasing order of priority.
 
 FP schedulability can be reduced to the kernel; thus, it can be solved using
 any of the three methods available for solving the kernel.
 
 """
-
 
 import math
 from fractions import Fraction
@@ -64,8 +62,12 @@ def solve(tsks: List[Task], method, perf=None):
     a = math.ceil(Fraction(num, den))
 
     # call the appropriate kernel function
-    return kernel.solve(tsks=tsks[:-1], alphas=js, beta=tsks[-1].wcet, a=a,
-                        b=tsks[-1].deadline - tsks[-1].jitter, perf=perf,
+    return kernel.solve(tsks=tsks[:-1],
+                        alphas=js,
+                        beta=tsks[-1].wcet,
+                        a=a,
+                        b=tsks[-1].deadline - tsks[-1].jitter,
+                        perf=perf,
                         method=method)
 
 
@@ -85,5 +87,6 @@ def schedulable(tsks: List[Task]) -> bool:
     False
     """
     us = [tsk.utilization for tsk in tsks]
-    return sum(us) <= 1 and all(solve(tsks[:i], 'cp') is not None for i in
-                                range(2, len(tsks) + 1))
+    return sum(us) <= 1 and all(
+        solve(tsks[:i], 'cp') is not None for i in range(2,
+                                                         len(tsks) + 1))

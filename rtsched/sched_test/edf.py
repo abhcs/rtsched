@@ -9,17 +9,14 @@ k ∈ range(1, n+1):
              for tsk in tsks[:k]) + 1 <= t
 
 tsks is a constant list of tasks with total utilization at most 1; the tasks
-are listed in nondecreasing order using the key deadline - period - jitter. For
-more details, see Sec. 2.2 and 4.2, https://arxiv.org/abs/2210.11185.
+are listed in nondecreasing order using the key deadline - period - jitter.
 
 EDF schedulability can be reduced to the kernel; thus, it can be solved using
 any of the three methods available for solving the kernel.
 
 """
 
-
 import math
-from fractions import Fraction
 from typing import List
 
 from rtsched.sched_test import kernel
@@ -28,8 +25,7 @@ from rtsched.util.math import dot, lcm
 
 
 def L(tsks: List[Task]) -> int:
-    """Computes the initial value for EDF schedulability. See Appendix A,
-    https://arxiv.org/abs/2210.11185.
+    """Computes the initial value for EDF schedulability.
     """
     us = [tsk.utilization for tsk in tsks]
     sum_us = sum(us)
@@ -39,7 +35,10 @@ def L(tsks: List[Task]) -> int:
     js = [tsk.jitter for tsk in tsks]
     ws = [tsk.wcet for tsk in tsks]
     ps = [tsk.period for tsk in tsks]
-    s = kernel.cutting_plane(tsks=tsks, alphas=js, beta=0, a=sum(ws),
+    s = kernel.cutting_plane(tsks=tsks,
+                             alphas=js,
+                             beta=0,
+                             a=sum(ws),
                              b=lcm(ps))
     assert s is not None
     return math.floor(s)
@@ -69,21 +68,42 @@ def solve(tsks: List[Task], method, perf=None):
     us = [tsk.utilization for tsk in tsks]
     assert sum(us) <= 1
 
-    tsks = sorted(tsks,
-                   key=lambda tsk: tsk.dj - tsk.period)
+    tsks = sorted(tsks, key=lambda tsk: tsk.dj - tsk.period)
 
     min_dj = min(tsk.dj for tsk in tsks)
     vs = [tsk.dj - tsk.period for tsk in tsks]
-    a = [min_dj] + [max(min_dj, v) for v in vs[1:]]
-    n = len(tsks)
-    b = [L(tsks[:i]) for i in range(1,n+1)]
+    t = max(L(tsks), max(vs))
+    if min_dj >= t:
+        return None
 
-    for k in reversed(range(n)):
-        if a[k] <= b[k] and (k == n-1 or a[k] < a[k+1]):
-            s = kernel.solve(tsks=tsks[:k+1], alphas=vs[:k+1], beta=1,
-                             a=-b[k]+1, b=-a[k], perf=perf, method=method)
-            if s is not None:
-                return -s
+    n = len(tsks)
+    p = 0
+    while p < n - 1:
+        if vs[p + 1] >= min_dj:
+            break
+        p += 1
+    q = n - 1
+    while q >= 0:
+        if vs[q] < t:
+            break
+        q -= 1
+    k = p
+    while k <= q:
+        a = max(min_dj, vs[k])
+        if k == n - 1:
+            b = t
+        else:
+            b = min(vs[k + 1], L(tsks[:k + 1]))
+        s = kernel.solve(tsks=tsks[:k + 1],
+                         alphas=vs[:k + 1],
+                         beta=1,
+                         a=-b,
+                         b=-a,
+                         perf=perf,
+                         method=method)
+        if s is not None:
+            return -s
+        k += 1
     return None
 
 

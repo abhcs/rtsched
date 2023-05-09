@@ -61,6 +61,11 @@ someone interested in developing schedulability tests that run quickly in
 pip install .
 ```
 
+6. Build the cpp library using
+```
+cd rtsched/sched_test && mkdir build && cd build && cmake ../cpp && make
+```
+
 ## Testing
 
 Test the correctness of the implementation:

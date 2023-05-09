@@ -17,8 +17,10 @@ class Task:
     period and jitter is zero. We assume that wcet + jitter <= deadline.
 
     """
-
-    def __init__(self, wcet: int, period: int, deadline: Optional[int] = None,
+    def __init__(self,
+                 wcet: int,
+                 period: int,
+                 deadline: Optional[int] = None,
                  jitter: int = 0) -> None:
         """Constructs a hard real-time task.
 
@@ -31,7 +33,7 @@ class Task:
         >>> Task(wcet = 1, period = 2, jitter = 1)
         Task(1, 2, 2, 1)
         """
-        if deadline is None: # implicit deadline
+        if deadline is None:  # implicit deadline
             deadline = period
         assert wcet > 0 and isinstance(wcet, int)
         assert period > 0 and isinstance(period, int)
