@@ -274,7 +274,7 @@ def analyze(method1: str,
     ratio = data1 / data2
     if show_stats:
         msg = f'statistics for ratio of {PERF_LABEL[perf]} of '\
-            f'{SOLVE_LABEL[method2]} to {SOLVE_LABEL[method1]}'
+            f'{SOLVE_LABEL[method1]} to {SOLVE_LABEL[method2]}'
         print(msg)
         print('-' * 80)
         print()
@@ -282,7 +282,7 @@ def analyze(method1: str,
         print()
     histogram(data=ratio,
               xlabel=f'ratio of {PERF_LABEL[perf]} of {SOLVE_LABEL[method1]}'\
-              'to {SOLVE_LABEL[method2]}', image_fn=dir / 'ratio')
+              f'to {SOLVE_LABEL[method2]}', image_fn=dir / 'ratio')
 
 
 def fp_sched_exp_1():
@@ -337,7 +337,7 @@ def fp_sched_exp_2():
     dir = pathlib.Path('fp_sched_exp2')
     dir.mkdir(exist_ok=True)
 
-    n = 50
+    n = 25
     rng = np.random.default_rng(seed=1234)
 
     def gen():
@@ -347,9 +347,9 @@ def fp_sched_exp_2():
                                max_wcet=None,
                                min_period=10,
                                max_period=pow(10, 6),
-                               sum_util=0.80,
+                               sum_util=0.95,
                                deadline_type='implicit',
-                               sum_dens=0.80,
+                               sum_dens=0.95,
                                max_jitter=0,
                                method='periods')
         # this lowest priority task puts the methods being evaluated under

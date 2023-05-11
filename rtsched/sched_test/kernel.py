@@ -27,11 +27,11 @@ import ctypes
 import math
 import os
 from fractions import Fraction
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from docplex.mp.model import Model
 from rtsched.system.task import Task
-from rtsched.util.math import dot
+from rtsched.util.math import argsort, dot
 
 
 def fixed_point(tsks: List[Task],
@@ -216,66 +216,72 @@ def cutting_plane(tsks: List[Task],
     >>> cutting_plane(tsks = [Task(20, 40), Task(10, 50), Task(33, 150)], alphas = [0, 0, 0], beta= 0, a = 20, b = 150)
     143
 
+    cutting_plane(tsks=[Task(25, 1181, 377, 8), Task(83, 1261, 893, 10), Task(6, 44, 15, 6), Task(4, 9, 13, 9)], alphas= [-812, -378, -35, -5], beta=1, a=-6000, b=-4)
+    -13
+
     """
-    utils = [tsk.utilization for tsk in tsks]
-    p0 = beta + dot(alphas, utils)
-    q0 = 1 - sum(utils)
-    n = len(tsks)
-
-    assert q0 >= 0
-
-    if a > b or (p0 > 0 and q0 == 0):
+    if a > b:
         return None
 
+    n = len(tsks)
     if n == 0:
         return a
 
-    ys = [
-        math.ceil(Fraction(a + alpha, tsk.period)) * tsk.period - alpha
-        for alpha, tsk in zip(alphas, tsks)
-    ]
-    pi = list(range(n))
+    p, q, r, xs, ys, pi = beta, 1, beta, [], [], []
+    for i in range(n):
+        period = tsks[i].period
+        wcet = tsks[i].wcet
+        util = tsks[i].utilization
+        alpha = alphas[i]
+        xs.append(math.ceil(Fraction(a + alpha, period)))
+        ys.append(period * xs[-1] - alpha)
+        pi.append(i)
+        p, q, r = p + util * alpha, q - util, r + wcet * xs[-1]
+
+    assert q >= 0, "utilization greater than one is not allowed"
+    if p > 0 and q == 0:
+        return None
+    if r <= a:
+        return a
+    i0 = 1 if q == 0 else 0
     pi.sort(key=ys.__getitem__, reverse=True)
 
-    if q0 > 0 and p0 > q0 * ys[pi[0]]:
-        return None
-
     while True:
-        p, q, t = p0 + utils[pi[0]] * ys[pi[0]], q0 + utils[pi[0]], a
-        i = 1
-        while i < n:
+        p, q, i = r, 1, n - 1
+        t = r
+        while i > i0:
             k = pi[i]
-            if p > q * ys[k]:
+            if p <= q * ys[k]:
                 t = math.ceil(Fraction(p, q))
                 break
-            p += utils[k] * ys[k]
-            q += utils[k]
-            i += 1
+            wcet = tsks[k].wcet
+            util = tsks[k].utilization
+            alpha = alphas[k]
+            p, q, i = p - wcet * xs[k] + util * alpha, q - util, i - 1
 
-        if i == n:
+        if i == i0:
             t = Fraction(p, q)
 
         if perf is not None:
             perf.num_iterations += 1
-
-        # the trivial case
-        if t <= a:
-            return a
 
         # instance is infeasible because relaxation is infeasible
         if t > b:
             return None
 
         # solution is integral and feasible, and hence optimal
-        if i == n:
+        if i == n - 1:
             return math.ceil(t)
 
-        for j in range(i, n):
+        for j in range(i + 1, n):
             k = pi[j]
-            alpha = alphas[k]
             period = tsks[k].period
-            ys[k] = math.ceil(Fraction(t + alpha, period)) * period - alpha
+            wcet = tsks[k].wcet
+            alpha = alphas[k]
+            d = math.ceil(Fraction(t + alpha, period)) - xs[k]
+            xs[k], ys[k], r = xs[k] + d, ys[k] + period * d, r + wcet * d
 
+        i += 1
         l1 = pi[:i].copy()
         l2 = sorted(pi[i:n], key=ys.__getitem__, reverse=True)
         i1, i2, k = 0, 0, 0
@@ -394,6 +400,9 @@ def cutting_plane_cpp(tsks: List[Task],
 
     >>> cutting_plane_cpp(tsks = [Task(20, 40), Task(10, 50), Task(33, 150)], alphas = [0, 0, 0], beta= 0, a = 20, b = 150)
     143
+
+    >>> cutting_plane_cpp(tsks=[Task(25, 1181, 377, 8), Task(83, 1261, 893, 10), Task(6, 44, 15, 6), Task(4, 9, 13, 9)], alphas= [-812, -378, -35, -5], beta=1, a=-6000, b=-4)
+    -13
 
     """
     dir = os.path.dirname(__file__)

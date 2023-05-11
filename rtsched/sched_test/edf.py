@@ -72,38 +72,21 @@ def solve(tsks: List[Task], method, perf=None):
 
     min_dj = min(tsk.dj for tsk in tsks)
     vs = [tsk.dj - tsk.period for tsk in tsks]
-    t = max(L(tsks), max(vs))
-    if min_dj >= t:
-        return None
-
+    a = [min_dj] + [max(min_dj, v) for v in vs[1:]]
     n = len(tsks)
-    p = 0
-    while p < n - 1:
-        if vs[p + 1] >= min_dj:
-            break
-        p += 1
-    q = n - 1
-    while q >= 0:
-        if vs[q] < t:
-            break
-        q -= 1
-    k = p
-    while k <= q:
-        a = max(min_dj, vs[k])
-        if k == n - 1:
-            b = t
-        else:
-            b = min(vs[k + 1], L(tsks[:k + 1]))
-        s = kernel.solve(tsks=tsks[:k + 1],
-                         alphas=vs[:k + 1],
-                         beta=1,
-                         a=-b,
-                         b=-a,
-                         perf=perf,
-                         method=method)
-        if s is not None:
-            return -s
-        k += 1
+    b = [L(tsks[:i]) for i in range(1, n + 1)]
+
+    for k in reversed(range(n)):
+        if a[k] <= b[k] and (k == n - 1 or a[k] < a[k + 1]):
+            s = kernel.solve(tsks=tsks[:k + 1],
+                             alphas=vs[:k + 1],
+                             beta=1,
+                             a=-b[k] + 1,
+                             b=-a[k],
+                             perf=perf,
+                             method=method)
+            if s is not None:
+                return -s
     return None
 
 
