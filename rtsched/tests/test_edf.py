@@ -100,13 +100,12 @@ def qpa(tsks: List[Task]):
                     max = d
         return max
 
-    t = max(L(tsks), max(tsk.dj - tsk.period for tsk in tsks))
+    t = L(tsks)
     min_dj = min(tsk.dj for tsk in tsks)
     while t >= min_dj:
         v = dbf(tsks, t)
         if v > t:
             return t
-        #t = v - 1
         if v < t:
             t = v
         else:

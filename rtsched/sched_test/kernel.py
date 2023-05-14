@@ -27,11 +27,10 @@ import ctypes
 import math
 import os
 from fractions import Fraction
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from docplex.mp.model import Model
 from rtsched.system.task import Task
-from rtsched.util.math import argsort, dot
 
 
 def fixed_point(tsks: List[Task],
@@ -219,6 +218,12 @@ def cutting_plane(tsks: List[Task],
     cutting_plane(tsks=[Task(25, 1181, 377, 8), Task(83, 1261, 893, 10), Task(6, 44, 15, 6), Task(4, 9, 13, 9)], alphas= [-812, -378, -35, -5], beta=1, a=-6000, b=-4)
     -13
 
+    >>> print(cutting_plane([Task(15, 112, 26, 3)], [-89], 1, -212, -23))
+    None
+
+    >>> print(cutting_plane([Task(2, 4)], [0], 3, 3, 6))
+    None
+
     """
     if a > b:
         return None
@@ -243,13 +248,14 @@ def cutting_plane(tsks: List[Task],
         return None
     if r <= a:
         return a
+
     i0 = 1 if q == 0 else 0
     pi.sort(key=ys.__getitem__, reverse=True)
 
     while True:
         p, q, i = r, 1, n - 1
         t = r
-        while i > i0:
+        while i >= i0:
             k = pi[i]
             if p <= q * ys[k]:
                 t = math.ceil(Fraction(p, q))
@@ -259,7 +265,7 @@ def cutting_plane(tsks: List[Task],
             alpha = alphas[k]
             p, q, i = p - wcet * xs[k] + util * alpha, q - util, i - 1
 
-        if i == i0:
+        if i == i0 - 1:
             t = Fraction(p, q)
 
         if perf is not None:
@@ -309,7 +315,9 @@ def fixed_point_cpp(tsks: List[Task],
                     a: int,
                     b: int,
                     perf=None) -> Optional[int]:
-    """Solve a kernel instance using fixed-point iteration.
+    """Solve a kernel instance using the c++ implementation of fixed-point
+    iteration; the only purpose of this function is to measure CPU running time
+    of the algorithm.
 
     Args:
         tsks: list of tasks
@@ -373,7 +381,8 @@ def cutting_plane_cpp(tsks: List[Task],
                       b: int,
                       perf=None) -> Optional[int]:
     """Solve a kernel instance using the c++ implementation of the specialized
-    cutting-plane algorithm.
+    cutting-plane algorithm; the only purpose of this function is to measure
+    CPU running time of the algorithm.
 
     Args:
 
@@ -403,6 +412,12 @@ def cutting_plane_cpp(tsks: List[Task],
 
     >>> cutting_plane_cpp(tsks=[Task(25, 1181, 377, 8), Task(83, 1261, 893, 10), Task(6, 44, 15, 6), Task(4, 9, 13, 9)], alphas= [-812, -378, -35, -5], beta=1, a=-6000, b=-4)
     -13
+
+    >>> print(cutting_plane_cpp([Task(15, 112, 26, 3)], [-89], 1, -212, -23))
+    None
+
+    >>> print(cutting_plane_cpp([Task(2, 4)], [0], 3, 3, 6))
+    None
 
     """
     dir = os.path.dirname(__file__)

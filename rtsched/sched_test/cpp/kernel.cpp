@@ -39,7 +39,7 @@ extern "C" uint64_t cutting_plane(uint64_t* cs, uint64_t* ps, double* us,
                                   double* time) {
   std::clock_t c_start = std::clock();
   uint64_t r = a;
-  const int reps = 1;
+  const int reps = 3;
   for (int i = 0; i < reps; i++) {
     r = cutting_plane_inner(cs, ps, us, alphas, n, beta, a, b, feasible);
   }
@@ -123,7 +123,7 @@ uint64_t cutting_plane_inner(uint64_t* cs, uint64_t* ps, double* us,
     *feasible = true;
     return a;
   }
-  const uint64_t i0 = 0;
+  const int64_t i0 = 0;
   std::sort(pi, pi + n, [](uint64_t a, uint64_t b) { return ys[a] > ys[b]; });
   int64_t t = r;
   int64_t prev_t = r;
@@ -131,8 +131,8 @@ uint64_t cutting_plane_inner(uint64_t* cs, uint64_t* ps, double* us,
   while (true) {
     double p = r;
     double q = 1.0;
-    uint64_t i = n - 1;
-    while (i > i0) {
+    int64_t i = (int64_t)n - 1;
+    while (i >= i0) {
       auto k = pi[i];
       if (p <= q * ys[k]) {
         t = std::ceil(p / q);
@@ -142,7 +142,7 @@ uint64_t cutting_plane_inner(uint64_t* cs, uint64_t* ps, double* us,
       q -= us[k];
       i -= 1;
     }
-    if (i == i0) {
+    if (i == i0 - 1) {
       t = std::ceil(p / q);
     }
     if (t > b) {

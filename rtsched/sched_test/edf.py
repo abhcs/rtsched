@@ -31,7 +31,7 @@ def L(tsks: List[Task]) -> int:
     sum_us = sum(us)
     vs = [tsk.dj - tsk.period for tsk in tsks]
     if sum_us < 1:
-        return math.floor(dot(us, vs) / (sum_us - 1) - 1)
+        return max(math.floor(dot(us, vs) / (sum_us - 1) - 1), max(vs))
     js = [tsk.jitter for tsk in tsks]
     ws = [tsk.wcet for tsk in tsks]
     ps = [tsk.period for tsk in tsks]
@@ -69,24 +69,40 @@ def solve(tsks: List[Task], method, perf=None):
     assert sum(us) <= 1
 
     tsks = sorted(tsks, key=lambda tsk: tsk.dj - tsk.period)
+    n = len(tsks)
 
     min_dj = min(tsk.dj for tsk in tsks)
-    vs = [tsk.dj - tsk.period for tsk in tsks]
-    a = [min_dj] + [max(min_dj, v) for v in vs[1:]]
-    n = len(tsks)
-    b = [L(tsks[:i]) for i in range(1, n + 1)]
+    l = L(tsks)
 
-    for k in reversed(range(n)):
-        if a[k] <= b[k] and (k == n - 1 or a[k] < a[k + 1]):
-            s = kernel.solve(tsks=tsks[:k + 1],
-                             alphas=vs[:k + 1],
-                             beta=1,
-                             a=-b[k] + 1,
-                             b=-a[k],
-                             perf=perf,
-                             method=method)
-            if s is not None:
-                return -s
+    if min_dj >= l:
+        return None
+
+    vs = [tsk.dj - tsk.period for tsk in tsks]
+    p = 0
+    while p < n - 1:
+        if vs[p + 1] > min_dj:
+            break
+        p += 1
+    q = n - 1
+    while q >= 0:
+        if vs[q] < l:
+            break
+        q -= 1
+    k = q
+
+    while k >= p:
+        a = max(min_dj, vs[k])
+        b = l if k == n - 1 else vs[k + 1]
+        s = kernel.solve(tsks=tsks[:k + 1],
+                         alphas=vs[:k + 1],
+                         beta=1,
+                         a=-b,
+                         b=-a,
+                         perf=perf,
+                         method=method)
+        if s is not None:
+            return -s
+        k -= 1
     return None
 
 

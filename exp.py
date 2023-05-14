@@ -4,7 +4,6 @@ and cutting-plane approaches.
 """
 
 import pathlib
-from itertools import product
 from typing import Optional
 
 import matplotlib.pyplot as plt
@@ -14,7 +13,8 @@ from attr import dataclass
 
 import rtsched.sched_test.edf as edf
 import rtsched.sched_test.fp as fp
-from rtsched.system.generate_random import generate_system
+from rtsched.system.generate_random import (generate_system_from_periods,
+                                            generate_system_from_wcets)
 from rtsched.system.task import Task
 
 
@@ -25,17 +25,6 @@ class Perf:
 
 
 HUGE_INT = int(pow(10, 10))
-SOLVE_LABEL = {
-    'fp': 'fixed point',
-    'ip': 'integer program',
-    'cp': 'cutting plane',
-    'fp_cpp': 'fixed point (C++)',
-    'cp_cpp': 'cutting plane (C++)'
-}
-PERF_LABEL = {
-    'iterations': 'number of iterations',
-    'time': 'CPU time (microseconds)'
-}
 
 
 def count_iterations(generate_system, num_systems: int, sched: str,
@@ -121,17 +110,20 @@ def measure_time(generate_system, num_systems: int, sched: str, method1: str,
         solve = edf.solve
     data1 = np.zeros(num_systems)
     data2 = np.zeros(num_systems)
-    for i in range(num_systems):
+    i = 0
+    while i < num_systems:
         tsks = generate_system()
         perf1 = Perf()
         perf2 = Perf()
 
         r1 = solve(tsks, method1, perf1)
         r2 = solve(tsks, method2, perf2)
-        assert (r1 == None) == (r2 == None)
-
+        if r1 != r2:
+            assert r1 is not None and r2 is not None, f'r1 = {r1}, r2 = {r2}'
+            continue
         data1[i] = perf1.time
         data2[i] = perf2.time
+        i += 1
     if data_fn:
         np.savez(data_fn,
                  data1=data1,
@@ -168,35 +160,38 @@ plt.rc('ytick', labelsize=10)
 plt.style.use('tableau-colorblind10')
 
 
-def two_histograms(method1: str, method2: str, data1: np.ndarray,
-                   data2: np.ndarray, xlabel: str, image_fn: Optional[str]):
+def two_histograms(data1: np.ndarray, label1: str, data2: np.ndarray,
+                   label2: str, xlabel: str, ylabel: str, bins: str,
+                   image_fn: Optional[str]):
     """Draw histograms of performance data for the two methods.
 
     Args:
 
-        method1, method2: the two methods being evaluated. each method must be
-                          in ['fp', 'ip', 'cp', 'fp_cpp', 'cp_cpp'].
+        data1, label1: data and label for 1st histogram.
 
-        data1, data2: the numpy arrays containing the performance data for the
-                      two methods. these arrays are either generated directly
-                      from run_fp() or run_edf(), or loaded from an npz file
-                      containing data from a run in the past using load().
+        data2, label2: data and label for 2nd histogram.
 
-        xlabel: label on x-axis.
+        xlabel: label for x-axis.
+
+        ylabel: label for y-axis
+
+        bins: either 'max' or one of the bin options mentioned here:
+    https://numpy.org/doc/stable/reference/generated/numpy.histogram_bin_edges.html
 
         image_fn: filename of pdf file that stores the histograms. if name is
                   None, then the image is simply displayed.
 
     """
-    m1 = np.amax(data1)
-    m2 = np.amax(data2)
-    m = max(m1, m2) + 1
-    bins = np.arange(start=0, stop=m, step=1)
-    plt.hist(data1, bins, label=SOLVE_LABEL[method1], alpha=0.5, density=True)
-    plt.hist(data2, bins, label=SOLVE_LABEL[method2], alpha=0.5, density=True)
-    plt.xlabel(xlabel, fontsize=20)
-    plt.ylabel("normalized frequencies", fontsize=20)
+    if bins == 'max':
+        a = min(0, np.amin(data1), np.amin(data2))
+        b = max(np.amax(data1), np.amax(data2)) + 1
+        bins = np.arange(start=a, stop=b, step=1)
+    plt.hist(data1, bins, label=label1, alpha=0.5, density=True)
+    plt.hist(data2, bins, label=label2, alpha=0.5, density=True)
+    plt.xlabel(xlabel, fontsize=15)
+    plt.ylabel(ylabel, fontsize=15)
     plt.legend(loc='upper right', prop={'size': 12})
+    plt.tight_layout()
     if image_fn:
         plt.savefig(f"{image_fn}.pdf", format="pdf")
     else:
@@ -204,23 +199,32 @@ def two_histograms(method1: str, method2: str, data1: np.ndarray,
     plt.clf()
 
 
-def histogram(xlabel: str, data: np.ndarray, image_fn: Optional[str]):
+def histogram(data: np.ndarray, xlabel: str, ylabel: str, bins: str,
+              image_fn: Optional[str]):
     """Draw histogram of data.
 
     Args:
-        xlabel: label on x-axis.
+        data: 1-D numpy array containing the data
 
-        data: the numpy array containing the data
+        xlabel: label for x-axis.
+
+        ylabel: label for y-axis
+
+        bins: either 'max' or one of the bin options mentioned here:
+    https://numpy.org/doc/stable/reference/generated/numpy.histogram_bin_edges.html
 
         image_fn: filename of pdf file that stores the histogram. if name is
                   None, then the image is simply displayed.
 
     """
-    #m = np.amax(data) + 1
-    #bins = np.arange(start = 0, stop = m, step = 1)
-    plt.hist(data, alpha=0.5, density=True)
+    if bins == 'max':
+        a = min(0, np.amin(data))
+        b = np.amax(data) + 1
+        bins = np.arange(start=a, stop=b, step=1)
+    plt.hist(data, bins, alpha=0.5, density=True)
     plt.xlabel(xlabel, fontsize=15)
-    plt.ylabel("normalized frequencies", fontsize=20)
+    plt.ylabel(ylabel, fontsize=15)
+    plt.tight_layout()
     if image_fn:
         plt.savefig(f"{image_fn}.pdf", format="pdf")
     else:
@@ -228,147 +232,191 @@ def histogram(xlabel: str, data: np.ndarray, image_fn: Optional[str]):
     plt.clf()
 
 
-def analyze(method1: str,
-            method2: str,
-            perf: str,
-            data1: np.ndarray,
+def analyze(data1: np.ndarray,
+            label1: str,
             data2: np.ndarray,
-            dir: Optional[str],
+            label2: str,
+            perf_label: str,
+            dir_name: pathlib.Path,
             show_stats: bool = False):
     """Analyze the performance data.
 
     Args:
 
-        method1, method2: the two methods being evaluated. each method must be
-                          in ['fp', 'ip', 'cp'].
+        data1, label1: data and label for 1st algorithm.
 
-        perf: the performance metric used in the evaluation. perf must be in
-              ['iterations', 'time'].
+        data2, label2: data and label for 2nd algorithm.
 
-        data1, data2: the numpy arrays containing the performance data for the
-                      two methods. these arrays are either generated directly
-                      from run_fp() or run_edf(), or loaded from an npz file
-                      containing data from a run in the past using load().
+        perf_label: label for performance metric
+
+        dir_name: name of directory where the histogram files are stored.
 
         show_stats: show descriptive statistics of performance data; False by
                     default.
 
     """
     if show_stats:
-        print(f'statistics for {PERF_LABEL[perf]} of {SOLVE_LABEL[method1]}')
+        print(f'statistics for {perf_label} of {label1}')
         print('-' * 80)
         print()
         print(scipy.stats.describe(data1))
         print()
-        print(f'statistics for {PERF_LABEL[perf]} of {SOLVE_LABEL[method2]}')
+        print(f'statistics for {perf_label} of {label2}')
         print('-' * 80)
         print()
         print(scipy.stats.describe(data2))
         print()
-    two_histograms(method1,
-                   method2,
-                   data1,
+    two_histograms(data1,
+                   label1,
                    data2,
-                   xlabel=f'{PERF_LABEL[perf]}',
-                   image_fn=dir / 'two')
+                   label2,
+                   xlabel=f'{perf_label}',
+                   ylabel='normalized frequencies',
+                   bins='max',
+                   image_fn=dir_name / 'two')
     ratio = data1 / data2
     if show_stats:
-        msg = f'statistics for ratio of {PERF_LABEL[perf]} of '\
-            f'{SOLVE_LABEL[method1]} to {SOLVE_LABEL[method2]}'
+        msg = f'statistics for ratio of {perf_label} of '\
+            f'{label1} to {label2}'
         print(msg)
         print('-' * 80)
         print()
         print(scipy.stats.describe(ratio))
         print()
     histogram(data=ratio,
-              xlabel=f'ratio of {PERF_LABEL[perf]} of {SOLVE_LABEL[method1]}'\
-              f'to {SOLVE_LABEL[method2]}', image_fn=dir / 'ratio')
+              xlabel=f'ratio of {perf_label} of\n {label1} '\
+              f'to {label2}', ylabel='normalized frequencies', bins='max',
+              image_fn=dir_name / 'ratio')
 
 
-def fp_sched_exp_1():
+def gen_fp_system_from_periods():
+    n = 25
+    rng = np.random.default_rng(seed=1234)
+    tsks = generate_system_from_periods(rng,
+                                        n - 1,
+                                        min_period=10,
+                                        max_period=pow(10, 6),
+                                        sum_util=0.8,
+                                        deadline_type='implicit',
+                                        sum_dens=0.8,
+                                        max_jitter=0,
+                                        abs_tol=n * 0.001)
+    # this lowest priority task puts the methods being evaluated under
+    # maximum stress
+    tsks.append(Task(wcet=100, period=HUGE_INT))
+    return tsks
+
+
+def gen_fp_system_from_wcets():
+    n = 25
+    rng = np.random.default_rng(seed=1234)
+    tsks = generate_system_from_wcets(rng,
+                                      n - 1,
+                                      min_wcet=1,
+                                      max_wcet=1000,
+                                      sum_util=0.9,
+                                      deadline_type='implicit',
+                                      sum_dens=0.9,
+                                      max_jitter=0)
+    # this lowest priority task puts the methods being evaluated under
+    # maximum stress
+    tsks.append(Task(wcet=100, period=HUGE_INT))
+    return tsks
+
+
+def exp_1():
     """Compare the number of iterations of fixed-point iteration and cutting
     planes for FP schedulability.
 
     """
     # name the directories in which you want to store the data and images.
-    dir = pathlib.Path('fp_sched_exp1')
+    dir = pathlib.Path('exp1')
     dir.mkdir(exist_ok=True)
 
-    n = 50
-    rng = np.random.default_rng(seed=1234)
-
-    def gen():
-        tsks = generate_system(rng,
-                               n - 1,
-                               min_wcet=1,
-                               max_wcet=1000,
-                               min_period=None,
-                               max_period=None,
-                               sum_util=0.95,
-                               deadline_type='implicit',
-                               sum_dens=0.95,
-                               max_jitter=0,
-                               method='wcets')
-        # this lowest priority task puts the methods being evaluated under
-        # maximum stress
-        tsks.append(
-            Task(wcet=rng.integers(low=1, high=1000).item(), period=HUGE_INT))
-        return tsks
-
-    # we used num_systems = 10000 in the actual experiment but the code
-    # executed for several hours.use a smaller value here to see if things are
-    # working properly first.
-    data1, data2 = count_iterations(gen,
-                                    num_systems=100,
+    # we used num_systems = 10000 in the actual experiment. use a smaller value
+    # here to see if things are working properly first.
+    data1, data2 = count_iterations(gen_fp_system_from_wcets,
+                                    num_systems=10000,
                                     sched='FP',
                                     method1='fp',
                                     method2='cp',
                                     data_fn=(dir / 'data.npz'))
 
-    analyze('fp', 'cp', 'iterations', data1, data2, dir, show_stats=True)
+    analyze(data1=data1,
+            label1='fixed point (RTA)',
+            data2=data2,
+            label2='cutting plane (CP-KERN)',
+            perf_label='number of iterations',
+            dir_name=dir,
+            show_stats=True)
 
 
-def fp_sched_exp_2():
+def exp_2():
     """Compare the running times of fixed-point iteration and cutting
     planes for FP schedulability.
 
     """
     # name the directories in which you want to store the data and images.
-    dir = pathlib.Path('fp_sched_exp2')
+    dir = pathlib.Path('exp2')
     dir.mkdir(exist_ok=True)
 
-    n = 25
-    rng = np.random.default_rng(seed=1234)
-
-    def gen():
-        tsks = generate_system(rng,
-                               n - 1,
-                               min_wcet=None,
-                               max_wcet=None,
-                               min_period=10,
-                               max_period=pow(10, 6),
-                               sum_util=0.95,
-                               deadline_type='implicit',
-                               sum_dens=0.95,
-                               max_jitter=0,
-                               method='periods')
-        # this lowest priority task puts the methods being evaluated under
-        # maximum stress
-        tsks.append(Task(wcet=1000, period=HUGE_INT))
-        return tsks
-
-    # we used num_systems = 10000 in the actual experiment but the code
-    # executed for several hours.use a smaller value here to see if things are
-    # working properly first.
-    data1, data2 = measure_time(gen,
+    # we used num_systems = 10000 in the actual experiment. use a smaller value
+    # here to see if things are working properly first.
+    data1, data2 = measure_time(gen_fp_system_from_wcets,
                                 num_systems=10000,
                                 sched='FP',
                                 method1='fp_cpp',
                                 method2='cp_cpp',
                                 data_fn=(dir / 'data.npz'))
 
-    analyze('fp', 'cp', 'time', data1, data2, dir, show_stats=True)
+    analyze(data1=data1,
+            label1='fixed point (RTA)',
+            data2=data2,
+            label2='cutting plane (CP-KERN)',
+            perf_label=r'CPU time ($\mu s$)',
+            dir_name=dir,
+            show_stats=True)
+
+
+def gen_edf_system_from_wcets():
+    rng = np.random.default_rng(seed=1234)
+    tsks = generate_system_from_wcets(rng,
+                                      n=25,
+                                      min_wcet=1,
+                                      max_wcet=1000,
+                                      sum_util=0.9,
+                                      deadline_type='constrained',
+                                      sum_dens=2,
+                                      max_jitter=0)
+    return tsks
+
+
+def exp_3():
+    """Compare the number of iterations of fixed-point iteration and cutting
+    planes for EDF schedulability.
+
+    """
+    # name the directories in which you want to store the data and images.
+    dir = pathlib.Path('exp3')
+    dir.mkdir(exist_ok=True)
+
+    # we used num_systems = 10000 in the actual experiment. use a smaller value
+    # here to see if things are working properly first.
+    data1, data2 = count_iterations(gen_edf_system_from_wcets,
+                                    num_systems=10000,
+                                    sched='EDF',
+                                    method1='fp',
+                                    method2='cp',
+                                    data_fn=(dir / 'data.npz'))
+
+    analyze(data1=data1,
+            label1='fixed point (QPA)',
+            data2=data2,
+            label2='cutting plane (CP-KERN)',
+            perf_label='number of iterations',
+            dir_name=dir,
+            show_stats=True)
 
 
 if __name__ == "__main__":
-    fp_sched_exp_2()
+    exp_3()
