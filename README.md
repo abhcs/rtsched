@@ -16,32 +16,34 @@ This repository is primarily intended to be a companion to the arxiv paper. It
 contains
 - a simple implementation of a hard real-time task (see
   [task.py](rtsched/system/task.py));
-- a method for generating random systems of hard real-time tasks (see
+- methods for generating random systems of hard real-time tasks (see
   [generate_random.py](rtsched/system/generate_random.py));
 - instrumented implementations of FP-KERN, IP-KERN, and CP-KERN that count the
   number of iterations used by the algorithm (see
   [kernel.py](rtsched/sched_test/kernel.py));
+- instrumented implementations of FP-KERN and CP-KERN that measure the CPU time
+  used by the algorithms (see[kernel.cpp](rtsched/sched_test/cpp/kernel.cpp));
 - the reduction from FP schedulability to the kernel described in
   Appendix A (see [fp.py](rtsched/sched_test/fp.py));
 - the reduction from EDF schedulability to the kernel described in Appendix B
- (see [edf.py](rtsched/sched_test/edf.py));
-- tests that ensure consistency with traditional schedulability tests like
-  RTA and QPA (see [tests](rtsched/tests));
+  (see [edf.py](rtsched/sched_test/edf.py));
+- tests for finding inconsistencies between CP-KERN and traditional
+  schedulability tests (RTA and QPA) (see [tests](rtsched/tests)); and
 - a script for running the experiments and generating the associated data and
-  images (see [exp.py](./exp.py)); and
-- historical data and images generated from running the experiments (see
-  [hist](./hist)).
+  images (see [exp.py](./exp.py)).
 
-The algorithms have not been implemented to optimize for *real* performance: for
-instance, we use arbitrary-precision Python integers instead of floats to err on
-the side of caution, and we use the number of iterations required by each
-algorithm as to measure performance in our experiments (not wall-clock time).
-These choices are justified because we really want to understand the
-*algorithms*, not the *implementations*. The number of iterations required for
-convergence is a property of the algorithm that is independent of the
-implementation. The repository should serve as a useful starting point for
-someone interested in developing schedulability tests that run quickly in
-*reality* (maybe use a language with good support for parallel programming).
+We depend on several Python packages including docplex, drs, numpy, matplotlib,
+pytest, and scipy. Our C++ implementation of CP-KERN can produce incorrect
+answers due to numerical issues stemming from the use of floating-point
+arithmetic and integer overflow errors. In contrast, our Python implementation
+of CP-KERN uses rational arithmetic using the fractions module and
+unlimited-precision integers. Thus, we think that the Python implementation is
+more trustworthy. In all experiments, we check that the results produced by
+FP-KERN and CP-KERN are consistent; thus, we have confidence in the validity of
+the results derived from the C++ implementations. The repository should serve as
+a useful starting point for someone interested in developing schedulability
+tests that run quickly in *reality* (maybe use a language with good support for
+parallel programming).
 
 ## Requirements
 
@@ -66,6 +68,9 @@ pip install .
 cd rtsched/sched_test && mkdir build && cd build && cmake ../cpp && make
 ```
 
+Pass the argument `-DCMAKE_EXPORT_COMPILE_COMMANDS=1` to `cmake` to generate
+`compile_commands.json`.
+
 ## Testing
 
 Test the correctness of the implementation:
@@ -82,14 +87,9 @@ Run the experiments:
 python exp.py
 ```
 
-The last 50 lines of the script specify the parameters that govern the random
-real-time systems generation, e.g., `seed`, `ns`, `ds`, `us`, etc., and the
-files where the results are stored. Basic Python literacy is needed to
-understand and modify these lines to get the behavior you want. By default, the
-script runs the experiments described in Figures 2 and 4 in the paper for a
-small number of randomly generated systems (`num_systems = 100`); the number can
-be increased to `10000` but then it may take an hour or two to run (at least it
-does on my machine with an 2.6 GHz Intel Core i7 processor).
+Basic Python literacy is needed to understand and modify the file to get the
+behavior you want. By default, the script runs the experiment described in
+Figures 2 in the paper.
 
 ## Results
 
@@ -98,7 +98,7 @@ results produced by this code.
 
 ## History
 
-Version 0.1.1 (2023-02-21)
+Version 0.1.2 (2023-05-15)
 
 ## Credits
 
