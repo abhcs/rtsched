@@ -55,7 +55,7 @@ def generate_system_from_wcets(rng: np.random.Generator, n: int, min_wcet: int,
         A random system of hard real-time tasks.
 
     >>> generate_system_from_wcets(np.random.default_rng(seed=42), n=4, min_wcet=1, max_wcet=100, sum_util=0.75, deadline_type='constrained', sum_dens=0.9, max_jitter=2)
-    [Task(2, 10, 10, 2), Task(90, 1084, 827, 1), Task(34, 121, 113, 1), Task(38, 222, 134, 2)]
+    [Task(2, 10, 9, 2), Task(90, 1084, 826, 1), Task(34, 121, 112, 1), Task(38, 222, 133, 2)]
 
     """
 
@@ -78,11 +78,11 @@ def generate_system_from_wcets(rng: np.random.Generator, n: int, min_wcet: int,
     elif deadline_type == 'constrained':
         assert math.isclose(sum_util, sum_dens) or sum_util < sum_dens
         ds = drs(rng, n, sum_dens, lower_bounds=us, upper_bounds=ones)
-        deadlines = [math.ceil(wcet / d) for d, wcet in zip(ds, wcets)]
+        deadlines = [math.floor(wcet / d) for d, wcet in zip(ds, wcets)]
         assert all(d <= p for d, p in zip(deadlines, periods))
     else:
         ds = drs(rng, n, sum_dens, upper_bounds=ones)
-        deadlines = [math.ceil(wcet / d) for d, wcet in zip(ds, wcets)]
+        deadlines = [math.floor(wcet / d) for d, wcet in zip(ds, wcets)]
     jitters = rng.integers(
         low=0,
         high=[min(max_jitter, d - w) + 1 for w, d in zip(wcets, deadlines)],
@@ -172,7 +172,7 @@ def generate_system_from_periods(rng: np.random.Generator, n: int,
                 assert all(d <= p for d, p in zip(deadlines, periods))
         else:
             ds = drs(rng, n, sum_dens, upper_bounds=ones)
-            deadlines = [math.ceil(wcet / d) for d, wcet in zip(ds, wcets)]
+            deadlines = [math.floor(wcet / d) for d, wcet in zip(ds, wcets)]
         jitters = rng.integers(low=0,
                                high=[
                                    min(max_jitter, d - w) + 1

@@ -4,6 +4,7 @@ and cutting-plane approaches.
 """
 
 import pathlib
+from functools import partial
 from typing import Optional
 
 import matplotlib.pyplot as plt
@@ -289,9 +290,8 @@ def analyze(data1: np.ndarray,
               image_fn=dir_name / 'ratio')
 
 
-def gen_fp_system_from_periods():
+def gen_fp_system_from_periods(rng: np.random.Generator):
     n = 25
-    rng = np.random.default_rng(seed=1234)
     tsks = generate_system_from_periods(rng,
                                         n - 1,
                                         min_period=10,
@@ -307,9 +307,8 @@ def gen_fp_system_from_periods():
     return tsks
 
 
-def gen_fp_system_from_wcets():
+def gen_fp_system_from_wcets(rng: np.random.Generator):
     n = 25
-    rng = np.random.default_rng(seed=1234)
     tsks = generate_system_from_wcets(rng,
                                       n - 1,
                                       min_wcet=1,
@@ -332,10 +331,11 @@ def exp_1():
     # name the directories in which you want to store the data and images.
     dir = pathlib.Path('exp1')
     dir.mkdir(exist_ok=True)
+    rng = np.random.default_rng(seed=1234)
 
     # we used num_systems = 10000 in the actual experiment. use a smaller value
     # here to see if things are working properly first.
-    data1, data2 = count_iterations(gen_fp_system_from_wcets,
+    data1, data2 = count_iterations(partial(gen_fp_system_from_wcets, rng),
                                     num_systems=10000,
                                     sched='FP',
                                     method1='fp',
@@ -359,10 +359,11 @@ def exp_2():
     # name the directories in which you want to store the data and images.
     dir = pathlib.Path('exp2')
     dir.mkdir(exist_ok=True)
+    rng = np.random.default_rng(seed=1234)
 
     # we used num_systems = 10000 in the actual experiment. use a smaller value
     # here to see if things are working properly first.
-    data1, data2 = measure_time(gen_fp_system_from_wcets,
+    data1, data2 = measure_time(partial(gen_fp_system_from_wcets, rng),
                                 num_systems=10000,
                                 sched='FP',
                                 method1='fp_cpp',
@@ -378,15 +379,14 @@ def exp_2():
             show_stats=True)
 
 
-def gen_edf_system_from_wcets():
-    rng = np.random.default_rng(seed=1234)
+def gen_edf_system_from_wcets(rng: np.random.Generator):
     tsks = generate_system_from_wcets(rng,
                                       n=25,
                                       min_wcet=1,
                                       max_wcet=1000,
                                       sum_util=0.9,
                                       deadline_type='constrained',
-                                      sum_dens=2,
+                                      sum_dens=1.5,
                                       max_jitter=0)
     return tsks
 
@@ -399,10 +399,11 @@ def exp_3():
     # name the directories in which you want to store the data and images.
     dir = pathlib.Path('exp3')
     dir.mkdir(exist_ok=True)
+    rng = np.random.default_rng(seed=1234)
 
     # we used num_systems = 10000 in the actual experiment. use a smaller value
     # here to see if things are working properly first.
-    data1, data2 = count_iterations(gen_edf_system_from_wcets,
+    data1, data2 = count_iterations(partial(gen_edf_system_from_wcets, rng),
                                     num_systems=10000,
                                     sched='EDF',
                                     method1='fp',
@@ -418,5 +419,33 @@ def exp_3():
             show_stats=True)
 
 
+def exp_4():
+    """Compare the running times of fixed-point iteration and cutting
+    planes for EDF schedulability.
+
+    """
+    # name the directories in which you want to store the data and images.
+    dir = pathlib.Path('exp4')
+    dir.mkdir(exist_ok=True)
+    rng = np.random.default_rng(seed=1234)
+
+    # we used num_systems = 10000 in the actual experiment. use a smaller value
+    # here to see if things are working properly first.
+    data1, data2 = measure_time(partial(gen_edf_system_from_wcets, rng),
+                                num_systems=10000,
+                                sched='EDF',
+                                method1='fp_cpp',
+                                method2='cp_cpp',
+                                data_fn=(dir / 'data.npz'))
+
+    analyze(data1=data1,
+            label1='fixed point (QPA)',
+            data2=data2,
+            label2='cutting plane (CP-KERN)',
+            perf_label=r'CPU time ($\mu s$)',
+            dir_name=dir,
+            show_stats=True)
+
+
 if __name__ == "__main__":
-    exp_3()
+    exp_1()
