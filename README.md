@@ -42,7 +42,7 @@ more trustworthy. In all experiments, we check that the results produced by
 FP-KERN and CP-KERN are consistent; thus, we have confidence in the validity of
 the results derived from the C++ implementations. The repository should serve as
 a useful starting point for someone interested in developing schedulability
-tests that run quickly in *reality* (maybe use a language with good support for
+tests that run even more quickly (maybe use a language with good support for
 parallel programming).
 
 ## Requirements
