@@ -142,7 +142,7 @@ def generate_system_from_periods(rng: np.random.Generator, n: int,
         A random system of hard real-time tasks.
 
     >>> generate_system_from_periods(np.random.default_rng(seed=42), n=4, min_period=10, max_period=10000, sum_util=0.75, deadline_type='constrained', sum_dens=0.9, max_jitter=2, abs_tol=0.05)
-    [Task(22, 2099, 2099, 1), Task(85, 208, 208, 0), Task(595, 3766, 3766, 2), Task(210, 1237, 1237, 1)]
+    [Task(22, 2099, 1376, 2), Task(85, 208, 196, 1), Task(595, 3766, 3369, 1), Task(210, 1237, 764, 2)]
 
     """
     ones = [1.0] * n
@@ -160,7 +160,7 @@ def generate_system_from_periods(rng: np.random.Generator, n: int,
         if deadline_type == 'implicit':
             deadlines = periods
         elif deadline_type == 'constrained':
-            if sum(us) < sum_dens:
+            if sum(us) >= sum_dens:
                 # assume implicit deadlines because total utilization must be
                 # less than total density for a constrained-deadline system.
                 deadlines = periods
