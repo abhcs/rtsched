@@ -29,3 +29,6 @@ addopts = [
 
 [tool.hatch.version]
 path = "rtsched/__about__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["rtsched"]
